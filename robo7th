@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>robo7th: Asistan AI pou Aprann</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+        .chat-container {
+            height: 70vh;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .user-message {
+            background-color: #4a5568;
+            color: #fff;
+            border-bottom-left-radius: 12px;
+            border-top-left-radius: 12px;
+        }
+        .ai-message {
+            background-color: #667eea;
+            color: #fff;
+            border-bottom-right-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+
+    <div class="container bg-gray-800 rounded-2xl shadow-2xl p-6 flex flex-col h-[90vh]">
+        <h1 class="text-4xl font-bold text-center text-indigo-400 mb-2">robo7th: Asistan AI pou Aprann</h1>
+        <p class="text-center text-gray-400 mb-6">Tape sou mikwofòn nan pou pale, oswa ekri yon mesaj.</p>
+
+        <div id="chat-box" class="chat-container flex-1 p-4 mb-4 bg-gray-700 rounded-xl space-y-4">
+            <!-- Mesaj yo ap parèt isit la -->
+        </div>
+        
+        <div id="image-output" class="hidden mb-4 p-4 bg-gray-700 rounded-xl">
+            <h3 class="text-lg font-bold mb-2">Imaj ki soti:</h3>
+            <img id="generated-image" class="w-full rounded-lg shadow-lg" alt="Imaj ki soti nan AI a" />
+        </div>
+
+        <div id="code-output-container" class="hidden mb-4 p-4 bg-gray-900 rounded-xl overflow-x-auto">
+            <h3 class="text-lg font-bold mb-2 text-gray-400">Kòd ki soti:</h3>
+            <pre><code id="code-output" class="text-sm text-green-400 whitespace-pre"></code></pre>
+        </div>
+
+        <div class="flex items-center">
+            <input type="file" id="image-upload" accept="image/*" class="hidden" />
+            <input type="text" id="user-input" class="flex-1 p-4 rounded-full bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Pale oswa ekri yon mesaj..." />
+            <button id="send-btn" class="p-4 rounded-full bg-indigo-500 text-white ml-2 hover:bg-indigo-600 transition duration-300 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+            </button>
+            <button id="upload-btn" class="p-4 rounded-full bg-gray-600 text-white ml-2 hover:bg-gray-700 transition duration-300 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+            </button>
+            <button id="mic-btn" class="p-4 rounded-full bg-red-500 text-white ml-2 hover:bg-red-600 transition duration-300 shadow-lg">
+                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a4 4 0 00-4 4v2a4 4 0 004 4m0-4a4 4 0 00-4 4" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Fonksyon pou ajoute yon mesaj nan chat la
+        function addMessage(sender, text, isCode = false) {
+            const chatBox = document.getElementById('chat-box');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `p-4 rounded-xl max-w-lg mb-3 shadow-md ${sender === 'user' ? 'bg-gray-600 ml-auto user-message' : 'bg-indigo-600 mr-auto ai-message'}`;
+
+            if (isCode) {
+                const pre = document.createElement('pre');
+                const code = document.createElement('code');
+                code.className = "language-python text-sm";
+                code.textContent = text;
+                pre.appendChild(code);
+                messageDiv.appendChild(pre);
+            } else {
+                messageDiv.textContent = text;
+            }
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Fonksyon pou mete yon mesaj loading
+        function showLoading() {
+            const chatBox = document.getElementById('chat-box');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-message';
+            loadingDiv.className = 'p-4 rounded-xl max-w-lg mb-3 shadow-md bg-indigo-600 mr-auto ai-message';
+            loadingDiv.textContent = "M'ap reflechi...";
+            chatBox.appendChild(loadingDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Fonksyon pou retire mesaj loading
+        function hideLoading() {
+            const loadingDiv = document.getElementById('loading-message');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+
+        // Fonksyon pou konvèti PCM an WAV
+        function pcmToWav(pcmData, sampleRate) {
+            const wavData = new ArrayBuffer(44 + pcmData.byteLength);
+            const view = new DataView(wavData);
+            const pcm16 = new Int16Array(pcmData);
+
+            let offset = 0;
+            function writeString(str) {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+                offset += str.length;
+            }
+
+            function writeUint32(uint32) {
+                view.setUint32(offset, uint32, true);
+                offset += 4;
+            }
+
+            function writeUint16(uint16) {
+                view.setUint16(offset, uint16, true);
+                offset += 2;
+            }
+
+            // RIFF header
+            writeString('RIFF');
+            writeUint32(36 + pcmData.byteLength);
+            writeString('WAVE');
+
+            // FMT sub-chunk
+            writeString('fmt ');
+            writeUint32(16); // sub-chunk size
+            writeUint16(1); // audio format (1 = PCM)
+            writeUint16(1); // num channels
+            writeUint32(sampleRate); // sample rate
+            writeUint32(sampleRate * 2); // byte rate (sampleRate * numChannels * bitsPerSample/8)
+            writeUint16(2); // block align (numChannels * bitsPerSample/8)
+            writeUint16(16); // bits per sample
+
+            // data sub-chunk
+            writeString('data');
+            writeUint32(pcmData.byteLength);
+
+            // PCM data
+            for (let i = 0; i < pcm16.length; i++) {
+                view.setInt16(offset, pcm16[i], true);
+                offset += 2;
+            }
+
+            return new Blob([wavData], { type: 'audio/wav' });
+        }
+
+        // Fonksyon pou fè AI a pale ak Gemini TTS
+        async function speakWithTTS(text) {
+            try {
+                const payload = {
+                    contents: [{
+                        parts: [{ text: `Di an kreyòl ayisyen tankou yon moun ki rele robo7th: ${text}` }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: { voiceName: "Puck" }
+                            }
+                        }
+                    },
+                    model: "gemini-2.5-flash-preview-tts"
+                };
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erè nan apèl API: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const part = result?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+
+                if (audioData) {
+                    const sampleRate = 16000; // API a retounen 16kHz PCM
+                    const pcmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0)).buffer;
+                    const wavBlob = pcmToWav(pcmData, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                } else {
+                    console.error("Pa gen done odyo ki soti nan repons API a.");
+                }
+            } catch (error) {
+                console.error('Erè pandan jenerasyon vwa:', error);
+            }
+        }
+
+        // Fonksyon pou chat lib avèk Gemini
+        async function chatWithGemini(prompt) {
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    addMessage('ai', text);
+                    speakWithTTS(text);
+                } else {
+                    addMessage('ai', "Mwen pa ka reponn kesyon sa a. Eseye yon lòt fwa.");
+                }
+            } catch (error) {
+                console.error('Erè nan chat Gemini:', error);
+                addMessage('ai', "Gen yon erè ki rive pandan m'ap chat. Eseye ankò.");
+            }
+        }
+
+        // Fonksyon pou analize imaj
+        async function analyzeImage(prompt, base64Image) {
+            const chatHistory = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image.split(",")[1] } }
+                    ]
+                }]
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(chatHistory)
+                });
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    addMessage('ai', text);
+                    speakWithTTS(text);
+                } else {
+                    addMessage('ai', "Mwen pa ka analize imaj sa a. Eseye ankò ak yon lòt.");
+                }
+            } catch (error) {
+                console.error('Erè pandan analiz imaj:', error);
+                addMessage('ai', "Gen yon erè ki rive pandan m'ap analize imaj la. Eseye ankò.");
+            }
+        }
+
+        // Fonksyon pou pwodwi kòd
+        async function generatePythonCode(appType) {
+            const prompt = `Ekri yon kòd Python senp pou yon aplikasyon ${appType} ak bibliyotèk tkinter. Kòd la dwe konplè, gen kòmantè, epi li dwe fonksyone byen. Reponn ak yon objè JSON ki gen de pwopriyete: "code" pou kòd la ak "explanation" pou yon eksplikasyon an kreyòl ayisyen.`;
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "code": { "type": "STRING" },
+                            "explanation": { "type": "STRING" }
+                        }
+                    }
+                }
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) {
+                    const parsedJson = JSON.parse(jsonText);
+                    document.getElementById('code-output').textContent = parsedJson.code;
+                    document.getElementById('code-output-container').classList.remove('hidden');
+                    addMessage('ai', parsedJson.explanation);
+                    speakWithTTS(parsedJson.explanation);
+                } else {
+                    addMessage('ai', "Mwen pa ka pwodwi kòd la. Eseye ankò.");
+                }
+            } catch (error) {
+                console.error('Erè pandan jenerasyon kòd:', error);
+                addMessage('ai', "Gen yon erè ki rive pandan m'ap pwodwi kòd la. Eseye ankò.");
+            }
+        }
+
+        // Fonksyon pou jenere imaj
+        async function generateImage(prompt) {
+            const payload = {
+                instances: { prompt: prompt },
+                parameters: { "sampleCount": 1 }
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+                const message = "Men imaj mwen te kreye a. Kisa ou panse?";
+                if (base64Data) {
+                    const imageUrl = `data:image/png;base64,${base64Data}`;
+                    document.getElementById('generated-image').src = imageUrl;
+                    document.getElementById('image-output').classList.remove('hidden');
+                    addMessage('ai', message);
+                    speakWithTTS(message);
+                } else {
+                    addMessage('ai', "Mwen pa ka kreye imaj sa a. Eseye yon lòt fwa.");
+                }
+            } catch (error) {
+                console.error('Erè pandan jenerasyon imaj:', error);
+                addMessage('ai', "Gen yon erè ki rive pandan m'ap kreye imaj la. Eseye ankò.");
+            }
+        }
+
+        // Fonksyon prensipal pou okipe kòmand yo
+        async function processCommand(command) {
+            addMessage('user', command);
+            showLoading();
+
+            document.getElementById('image-output').classList.add('hidden');
+            document.getElementById('code-output-container').classList.add('hidden');
+            
+            try {
+                if (uploadedImage) {
+                    await analyzeImage(command, uploadedImage);
+                } else if (command.toLowerCase().includes('kreye kòd pou')) {
+                    const appType = command.toLowerCase().split('kreye kòd pou')[1]?.trim();
+                    if (appType) {
+                        await generatePythonCode(appType);
+                    } else {
+                        const response = 'Ki kalite app ou vle m kreye? Di "kreye kòd pou yon kalkilatris" pa egzanp.';
+                        addMessage('ai', response);
+                        speakWithTTS(response);
+                    }
+                } else if (command.toLowerCase().includes('kreye yon imaj de') || command.toLowerCase().includes('desine yon')) {
+                    const prompt = command.toLowerCase().includes('kreye yon imaj de') ? command.split('kreye yon imaj de')[1]?.trim() : command.split('desine yon')[1]?.trim();
+                    if (prompt) {
+                        await generateImage(prompt);
+                    } else {
+                        const response = 'Ki imaj ou vle mwen kreye? Di "kreye yon imaj de yon robo k ap kwit manje" pa egzanp.';
+                        addMessage('ai', response);
+                        speakWithTTS(response);
+                    }
+                } else {
+                    await chatWithGemini(command);
+                }
+            } catch (error) {
+                console.error('Erè pandan pwosesis kòmand:', error);
+                addMessage('ai', "Gen yon erè ki rive. Eseye ankò.");
+            } finally {
+                hideLoading();
+                uploadedImage = null; // Reyinisyalize imaj la apre itilizasyon
+            }
+        }
+
+        // Rekonesans Vwa (Speech Recognition)
+        let recognition;
+        let isListening = false;
+        
+        function setupSpeechRecognition() {
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (window.SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'ht-HT'; // Mete lang an kreyòl ayisyen
+                recognition.interimResults = false; // Nou sèlman vle rezilta final la
+                
+                recognition.addEventListener('result', e => {
+                    const transcript = Array.from(e.results)
+                        .map(result => result[0])
+                        .map(result => result.transcript)
+                        .join('');
+
+                    if (e.results[0].isFinal) {
+                        document.getElementById('user-input').value = transcript;
+                        processCommand(transcript);
+                    }
+                });
+
+                recognition.addEventListener('end', () => {
+                    isListening = false;
+                    updateMicButton();
+                });
+
+                recognition.addEventListener('error', e => {
+                    console.error('Erè nan rekonesans vwa:', e.error);
+                    isListening = false;
+                    updateMicButton();
+                    addMessage('ai', "Gen yon erè ki rive pandan m t ap koute. Eseye ankò.");
+                });
+            } else {
+                // Navigatè a pa sipòte Web Speech API
+                document.getElementById('mic-btn').classList.add('hidden');
+                console.warn('Rekonesans vwa pa sipòte nan navigatè sa a.');
+            }
+        }
+
+        function toggleMic() {
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function updateMicButton() {
+            const micBtn = document.getElementById('mic-btn');
+            const micIcon = document.getElementById('mic-icon');
+            if (isListening) {
+                micBtn.classList.add('bg-red-700');
+                micIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21L3 3M15 15V13a3 3 0 00-3-3H9a3 3 0 00-3 3v2m15 0h-2M6 13h-2M12 17v4m0 0H9m3 0h3m-6-4h6" />`;
+            } else {
+                micBtn.classList.remove('bg-red-700');
+                micIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a4 4 0 00-4 4v2a4 4 0 004 4m0-4a4 4 0 00-4 4" />`;
+            }
+        }
+
+        // Reyinisyalize lè paj la chaje
+        let uploadedImage = null;
+        document.addEventListener('DOMContentLoaded', () => {
+            addMessage('ai', 'Alo! Mwen se robo7th. Mwen ka ede w ak robo, app, oswa ou ka pale avè m kòm si se yon chat ou ye. Mwen kapab tou kreye imaj pou ou.');
+
+            setupSpeechRecognition();
+
+            document.getElementById('send-btn').addEventListener('click', () => {
+                const input = document.getElementById('user-input');
+                if (input.value.trim() !== '') {
+                    processCommand(input.value);
+                    input.value = '';
+                }
+            });
+
+            document.getElementById('user-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('send-btn').click();
+                }
+            });
+
+            document.getElementById('upload-btn').addEventListener('click', () => {
+                document.getElementById('image-upload').click();
+            });
+
+            document.getElementById('image-upload').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        uploadedImage = e.target.result;
+                        addMessage('user', `Imaj la telechaje.`);
+                        speakWithTTS(`Imaj la telechaje. Kisa ou ta renmen m fè avè l?`);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            document.getElementById('mic-btn').addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                    isListening = true;
+                    updateMicButton();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
